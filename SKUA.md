@@ -1,6 +1,6 @@
 # skua-goawk
 
-Private RusticStack fork of [benhoyt/goawk](https://github.com/benhoyt/goawk) (MIT), the `awk`
+Public RusticStack fork of [benhoyt/goawk](https://github.com/benhoyt/goawk) (MIT), the `awk`
 that Skua Bash bundles (skua-bash `skua/uutils.toml`, card M3-SH5B). Upstream history is kept:
 
 - `master` mirrors upstream `master` (never commit here).
@@ -8,7 +8,7 @@ that Skua Bash bundles (skua-bash `skua/uutils.toml`, card M3-SH5B). Upstream hi
   periodically: `git fetch upstream && git merge upstream/master` on `skua`, run the tests, push,
   then move the pin in skua-bash `skua/uutils.toml`.
 
-No upstream PRs are opened from here (owner policy).
+No upstream PRs are opened from here (Skua D-118).
 
 ## Changes on `skua`
 
