@@ -624,24 +624,26 @@ func (p *interp) execute(code []compiler.Opcode) error {
 			ip += 5
 			array := p.array(resolver.Scope(arrayScope), int(arrayIndex))
 			loopCode := code[ip : ip+int(offset)]
-			for index := range array {
-				switch resolver.Scope(varScope) {
-				case resolver.Global:
-					p.globals[varIndex] = str(index)
-				case resolver.Local:
-					p.frame[varIndex] = str(index)
-				default: // resolver.Special
-					err := p.setSpecial(int(varIndex), str(index))
+			if keys := p.sortedInKeys(array); keys != nil {
+				// Skua: gawk's PROCINFO["sorted_in"] order
+				for _, index := range keys {
+					stop, err := p.forInStep(resolver.Scope(varScope), int(varIndex), index, loopCode)
 					if err != nil {
 						return err
 					}
+					if stop {
+						break
+					}
 				}
-				err := p.execute(loopCode)
-				if err == errBreak {
-					break
-				}
-				if err != nil {
-					return err
+			} else {
+				for index := range array {
+					stop, err := p.forInStep(resolver.Scope(varScope), int(varIndex), index, loopCode)
+					if err != nil {
+						return err
+					}
+					if stop {
+						break
+					}
 				}
 			}
 			ip += int(offset)
@@ -663,6 +665,29 @@ func (p *interp) execute(code []compiler.Opcode) error {
 			ip += 2
 			array := p.array(resolver.Scope(arrayScope), int(arrayIndex))
 			p.push(num(float64(len(array))))
+
+		case compiler.CallMatchArray:
+			arrayScope := code[ip]
+			arrayIndex := code[ip+1]
+			ip += 2
+			sValue, regex := p.peekPop()
+			start, err := p.matchArray(p.toString(sValue), p.toString(regex), resolver.Scope(arrayScope), int(arrayIndex))
+			if err != nil {
+				return err
+			}
+			p.replaceTop(start)
+
+		case compiler.CallAsort, compiler.CallAsorti:
+			src := p.array(resolver.Scope(code[ip]), int(code[ip+1]))
+			dst := p.array(resolver.Scope(code[ip+2]), int(code[ip+3]))
+			ip += 4
+			p.push(num(float64(p.asort(src, dst, op == compiler.CallAsorti))))
+
+		case compiler.CallStrftime:
+			numArgs := int(code[ip])
+			ip++
+			args := p.popSlice(numArgs)
+			p.push(str(p.strftime(args)))
 
 		case compiler.CallSplit:
 			arrayScope := code[ip]
@@ -1066,6 +1091,19 @@ func (p *interp) callBuiltin(builtinOp compiler.BuiltinOp) error {
 		p.randSeed = p.peekTop().num()
 		p.random.Seed(int64(math.Float64bits(p.randSeed)))
 		p.replaceTop(num(prevSeed))
+
+	case compiler.BuiltinGensub:
+		target := p.pop()
+		regex, repl, how := p.peekPeekPop()
+		out, err := p.gensub(p.toString(regex), p.toString(repl), how, p.toString(target))
+		if err != nil {
+			return err
+		}
+		p.replaceTwo(str(out), null())
+		p.pop()
+
+	case compiler.BuiltinSystime:
+		p.push(num(float64(time.Now().Unix())))
 
 	case compiler.BuiltinSub:
 		regex, repl, in := p.peekPeekPop()

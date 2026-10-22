@@ -1,6 +1,6 @@
 package compiler
 
-//go:generate go run golang.org/x/tools/cmd/stringer@v0.43.0 -type=Opcode,AugOp,BuiltinOp
+//go:generate go run golang.org/x/tools/cmd/stringer@v0.52.0 -type=Opcode,AugOp,BuiltinOp
 
 // Opcode represents a single virtual machine instruction (or argument). The
 // comments beside each opcode show any arguments that instruction consumes.
@@ -139,6 +139,12 @@ const (
 	GetlineSpecial // redirect index
 	GetlineArray   // redirect arrayScope arrayIndex
 
+	// Skua: gawk extensions
+	CallMatchArray // arrayScope arrayIndex
+	CallAsort      // srcScope srcIndex dstScope dstIndex
+	CallAsorti     // srcScope srcIndex dstScope dstIndex
+	CallStrftime   // numArgs
+
 	EndOpcode
 )
 
@@ -182,4 +188,8 @@ const (
 	BuiltinSystem
 	BuiltinTolower
 	BuiltinToupper
+
+	// Skua: gawk extensions
+	BuiltinGensub
+	BuiltinSystime
 )

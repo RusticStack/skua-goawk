@@ -443,6 +443,19 @@ func (v *mainVisitor) Visit(node ast.Node) ast.Visitor {
 			v.r.recordVar(v.curFunc, varExpr.Name, Array, varExpr.Pos)
 			ast.WalkExprList(v, n.Args[2:])
 
+		case lexer.F_MATCH:
+			ast.WalkExprList(v, n.Args[:2])
+			if len(n.Args) > 2 {
+				varExpr := n.Args[2].(*ast.VarExpr) // Skua: match()'s 3rd arg is an array
+				v.r.recordVar(v.curFunc, varExpr.Name, Array, varExpr.Pos)
+			}
+
+		case lexer.F_ASORT, lexer.F_ASORTI:
+			for _, arg := range n.Args { // Skua: asort/asorti take arrays only
+				varExpr := arg.(*ast.VarExpr)
+				v.r.recordVar(v.curFunc, varExpr.Name, Array, varExpr.Pos)
+			}
+
 		case lexer.F_LENGTH:
 			if len(n.Args) > 0 {
 				if varExpr, ok := n.Args[0].(*ast.VarExpr); ok {

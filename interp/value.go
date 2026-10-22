@@ -103,21 +103,29 @@ func (v value) boolean() bool {
 	}
 }
 
-// Like strconv.ParseFloat, but allow hex floating point without exponent, and
-// allow "+nan" and "-nan" (though they both return math.NaN()). Also disallow
-// underscore digit separators.
+// Like strconv.ParseFloat, but allow "+nan" and "-nan" (Skua: a NaN with that
+// sign, printed back as gawk does). Also disallow underscore digit separators.
+//
+// Skua: as gawk, a string that looks like hex ("0x1A") is not a number, and
+// inf/nan are numbers only when signed and exactly "+inf", "-inf", "+nan" or
+// "-nan" (so input fields such as "nan", "info" or "Infinity" stay strings).
 func parseFloat(s string) (float64, error) {
 	s = strings.TrimSpace(s)
+	body := s
 	if len(s) > 1 && (s[0] == '+' || s[0] == '-') {
-		if len(s) == 4 && hasNaNPrefix(s[1:]) {
+		body = s[1:]
+		if len(s) == 4 && hasNaNPrefix(body) {
 			// ParseFloat doesn't handle "nan" with sign prefix, so handle it here.
-			return math.NaN(), nil
+			return signedNaN(s[0] == '-'), nil
 		}
-		if len(s) > 3 && hasHexPrefix(s[1:]) && strings.IndexByte(s, 'p') < 0 && strings.IndexByte(s, 'P') < 0 {
-			s += "p0"
+	}
+	if len(body) > 0 && (body[0] == 'i' || body[0] == 'I' || body[0] == 'n' || body[0] == 'N') {
+		if body == s || len(s) != 4 || !hasInfPrefix(body) {
+			return 0, strconv.ErrSyntax
 		}
-	} else if len(s) > 2 && hasHexPrefix(s) && strings.IndexByte(s, 'p') < 0 && strings.IndexByte(s, 'P') < 0 {
-		s += "p0"
+	}
+	if len(body) > 1 && hasHexPrefix(body) {
+		return 0, strconv.ErrSyntax
 	}
 	n, err := strconv.ParseFloat(s, 64)
 	if err == nil && strings.IndexByte(s, '_') >= 0 {
@@ -143,13 +151,17 @@ func (v value) str(floatFormat string) string {
 // nan/inf are special cases and don't use floatFormat.
 func numToStr(n float64, floatFormat string) string {
 	switch {
+	// Skua: signed, as gawk prints them.
 	case math.IsNaN(n):
-		return "nan"
+		if math.Signbit(n) {
+			return "-nan"
+		}
+		return "+nan"
 	case math.IsInf(n, 0):
 		if n < 0 {
 			return "-inf"
 		} else {
-			return "inf"
+			return "+inf"
 		}
 	case n == float64(int64(n)):
 		return strconv.FormatInt(int64(n), 10)
@@ -190,13 +202,16 @@ func parseFloatPrefix(s string) float64 {
 	}
 	start := i
 
-	// Parse optional sign and check for NaN and Inf.
+	// Parse optional sign and check for NaN and Inf (Skua: only when signed,
+	// as gawk).
+	signed := false
 	if i < len(s) && (s[i] == '+' || s[i] == '-') {
 		i++
+		signed = true
 	}
-	if i+3 <= len(s) {
+	if signed && i+3 <= len(s) {
 		if hasNaNPrefix(s[i:]) {
-			return math.NaN()
+			return signedNaN(s[start] == '-')
 		}
 		if hasInfPrefix(s[i:]) {
 			if s[start] == '-' {
@@ -206,10 +221,8 @@ func parseFloatPrefix(s string) float64 {
 		}
 	}
 
-	// Parse mantissa: initial digit(s), optional '.', then more digits
-	if i+2 < len(s) && hasHexPrefix(s[i:]) {
-		return parseHexFloatPrefix(s, start, i+2)
-	}
+	// Parse mantissa: initial digit(s), optional '.', then more digits.
+	// Skua: no hex, as gawk ("0x1A" converts to 0).
 	gotDigit := false
 	for i < len(s) && isDigit(s[i]) {
 		gotDigit = true
@@ -257,50 +270,14 @@ func hasInfPrefix(s string) bool {
 	return (s[0] == 'i' || s[0] == 'I') && (s[1] == 'n' || s[1] == 'N') && (s[2] == 'f' || s[2] == 'F')
 }
 
-// Helper used by parseFloatPrefix to handle hexadecimal floating point.
-func parseHexFloatPrefix(s string, start, i int) float64 {
-	gotDigit := false
-	for i < len(s) && isHexDigit(s[i]) {
-		gotDigit = true
-		i++
+// signedNaN returns a NaN with the sign bit set when negative.
+func signedNaN(negative bool) float64 {
+	if negative {
+		return math.Copysign(math.NaN(), -1)
 	}
-	if i < len(s) && s[i] == '.' {
-		i++
-	}
-	for i < len(s) && isHexDigit(s[i]) {
-		gotDigit = true
-		i++
-	}
-	if !gotDigit {
-		return 0
-	}
-
-	gotExponent := false
-	end := i
-	if i < len(s) && (s[i] == 'p' || s[i] == 'P') {
-		i++
-		if i < len(s) && (s[i] == '+' || s[i] == '-') {
-			i++
-		}
-		for i < len(s) && isDigit(s[i]) {
-			gotExponent = true
-			i++
-			end = i
-		}
-	}
-
-	floatStr := s[start:end]
-	if !gotExponent {
-		floatStr += "p0" // AWK allows "0x12", ParseFloat requires "0x12p0"
-	}
-	f, _ := strconv.ParseFloat(floatStr, 64)
-	return f // Returns infinity in case of "value out of range" error
+	return math.NaN()
 }
 
 func isDigit(c byte) bool {
 	return c >= '0' && c <= '9'
-}
-
-func isHexDigit(c byte) bool {
-	return c >= '0' && c <= '9' || c >= 'a' && c <= 'f' || c >= 'A' && c <= 'F'
 }

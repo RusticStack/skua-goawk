@@ -844,6 +844,35 @@ func (c *compiler) expr(expr ast.Expr) {
 			}
 			return
 
+		case lexer.F_MATCH:
+			if len(e.Args) > 2 { // Skua: match(s, re, arr)
+				c.expr(e.Args[0])
+				c.expr(e.Args[1])
+				scope, index := c.arrayInfo(e.Args[2].(*ast.VarExpr).Name)
+				c.add(CallMatchArray, Opcode(scope), opcodeInt(index))
+				return
+			}
+		case lexer.F_ASORT, lexer.F_ASORTI: // Skua: asort/asorti(src [, dest])
+			srcScope, srcIndex := c.arrayInfo(e.Args[0].(*ast.VarExpr).Name)
+			dstScope, dstIndex := srcScope, srcIndex
+			if len(e.Args) > 1 {
+				dstScope, dstIndex = c.arrayInfo(e.Args[1].(*ast.VarExpr).Name)
+			}
+			op := CallAsort
+			if e.Func == lexer.F_ASORTI {
+				op = CallAsorti
+			}
+			c.add(op, Opcode(srcScope), opcodeInt(srcIndex), Opcode(dstScope), opcodeInt(dstIndex))
+			return
+		case lexer.F_GENSUB: // Skua: gensub(re, repl, how [, target = $0])
+			for _, arg := range e.Args {
+				c.expr(arg)
+			}
+			if len(e.Args) < 4 {
+				c.expr(&ast.FieldExpr{Index: &ast.NumExpr{}})
+			}
+			c.add(CallBuiltin, Opcode(BuiltinGensub))
+			return
 		case lexer.F_LENGTH:
 			if len(e.Args) > 0 {
 				// Determine if the call is length(arrayVar) or length(stringExpr).
@@ -896,6 +925,10 @@ func (c *compiler) expr(expr ast.Expr) {
 			c.add(CallSprintf, opcodeInt(len(e.Args)))
 		case lexer.F_SQRT:
 			c.add(CallBuiltin, Opcode(BuiltinSqrt))
+		case lexer.F_STRFTIME:
+			c.add(CallStrftime, opcodeInt(len(e.Args)))
+		case lexer.F_SYSTIME:
+			c.add(CallBuiltin, Opcode(BuiltinSystime))
 		case lexer.F_SRAND:
 			if len(e.Args) > 0 {
 				c.add(CallBuiltin, Opcode(BuiltinSrandSeed))

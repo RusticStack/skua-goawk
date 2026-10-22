@@ -1,0 +1,43 @@
+name: Skua
+
+# Skua Bash's awk (RusticStack/skua-goawk, branch `skua`): build and test on Windows, the only
+# platform Skua ships. Upstream's tests.yml runs only for `master` (the upstream mirror).
+
+on:
+  push:
+    branches: [ skua ]
+  pull_request:
+    branches: [ skua ]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  windows:
+    runs-on: blacksmith-4vcpu-windows-2025
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Set up Go
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version: '1.27'
+
+      - name: Build
+        shell: pwsh
+        run: |
+          go vet ./...
+          go build -trimpath -ldflags "-s -w" -o awk.exe .
+          "{0:n1} MB" -f ((Get-Item awk.exe).Length / 1MB)
+
+      # The interp tests also run each program through an external gawk; on Windows the command
+      # line mangles some of them (upstream skips those under windows-gawk), so they run goawk
+      # only. The other packages compare with Git for Windows' gawk.
+      - name: Test
+        shell: pwsh
+        run: |
+          $env:PATH = "C:\Program Files\Git\usr\bin;$env:PATH"
+          gawk --version | Select-Object -First 1
+          go test ./interp -args -awk=
+          go test . ./internal/... ./lexer ./parser

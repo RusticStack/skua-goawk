@@ -231,8 +231,8 @@ func TestAllTokens(t *testing.T) {
 		"<= ~ % %= * *= !~ ! != | || ^ ^= ** **= ? } ] ) ; - -= " +
 		"BEGIN break continue delete do else END exit " +
 		"for function getline if in next nextfile print printf return while " +
-		"atan2 close cos exp fflush gsub index int length log match rand " +
-		"sin split sprintf sqrt srand sub substr system tolower toupper " +
+		"asort asorti atan2 close cos exp fflush gensub gsub index int length log match rand " +
+		"sin split sprintf sqrt srand strftime sub substr system systime tolower toupper " +
 		"x \"str\\n\" 1234\n" +
 		"` ."
 
@@ -254,8 +254,8 @@ func TestAllTokens(t *testing.T) {
 		"<= ~ % %= * *= !~ ! != | || ^ ^= ^ ^= ? } ] ) ; - -= " +
 		"BEGIN break continue delete do else END exit " +
 		"for function getline if in next nextfile print printf return while " +
-		"atan2 close cos exp fflush gsub index int length log match rand " +
-		"sin split sprintf sqrt srand sub substr system tolower toupper " +
+		"asort asorti atan2 close cos exp fflush gensub gsub index int length log match rand " +
+		"sin split sprintf sqrt srand strftime sub substr system systime tolower toupper " +
 		"name string number <newline> " +
 		"<illegal> <illegal> EOF"
 	if output != expected {

@@ -31,15 +31,23 @@ import (
 type osFS struct{}
 
 func (osFS) Open(name string) (fs.File, error) {
-	return os.Open(name)
+	return os.Open(devNull(name))
 }
 
 func (osFS) Create(name string) (io.WriteCloser, error) {
-	return os.OpenFile(name, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0o644)
+	return os.OpenFile(devNull(name), os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0o644)
+}
+
+// Skua: "/dev/null" is the null device on Windows too ("NUL").
+func devNull(name string) string {
+	if name == "/dev/null" {
+		return os.DevNull
+	}
+	return name
 }
 
 func (osFS) Append(name string) (io.WriteCloser, error) {
-	return os.OpenFile(name, os.O_WRONLY|os.O_CREATE|os.O_APPEND, 0o644)
+	return os.OpenFile(devNull(name), os.O_WRONLY|os.O_CREATE|os.O_APPEND, 0o644)
 }
 
 // awkFS wraps the fs.FS given by Config.FileSystem, converting AWK filenames
@@ -258,13 +266,14 @@ func (p *interp) getInputScannerFile(name string) (*bufio.Scanner, error) {
 	if _, ok := p.inputStreams[name]; ok {
 		return p.scanners[name], nil
 	}
-	if name == "-" {
-		// filename of "-" means read from stdin, eg: getline <"-"
+	if name == "-" || name == "/dev/stdin" {
+		// filename of "-" means read from stdin, eg: getline <"-" (Skua: also
+		// "/dev/stdin", which Windows does not have)
 		if scanner, ok := p.scanners["-"]; ok {
 			return scanner, nil
 		}
 		scanner := p.newScanner(p.stdin, make([]byte, inputBufSize))
-		p.scanners[name] = scanner
+		p.scanners["-"] = scanner
 		return scanner, nil
 	}
 	if p.noFileReads {
@@ -839,10 +848,11 @@ func (p *interp) nextLine() (string, error) {
 					// ARGV arg is empty string, skip
 					p.input = nil
 					continue
-				} else if filename == "-" {
-					// ARGV arg is "-" meaning stdin
+				} else if filename == "-" || filename == "/dev/stdin" {
+					// ARGV arg is "-" meaning stdin (Skua: or /dev/stdin, which
+					// Windows does not have)
 					p.input = p.stdin
-					p.setFile("-")
+					p.setFile(filename)
 				} else {
 					// A regular file name, open it
 					if p.noFileReads {

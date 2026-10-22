@@ -59,7 +59,9 @@ const (
   -v var=value      variable assignment (multiple allowed)
 
 Additional GoAWK features:
+  -b                use bytes for index, length, match, substr, and %c
   -c                use Unicode chars for index, length, match, substr, and %c
+                    (default unless LC_ALL, LC_CTYPE or LANG names a non-UTF-8 locale)
   -E progfile       load program, treat as last option, disable var=value args
   -H                parse header row and enable @"field" in CSV input mode
   -h, --help        show this help message
@@ -67,7 +69,7 @@ Additional GoAWK features:
                     'csv|tsv [separator=<char>] [comment=<char>] [header]'
   -o mode           use CSV output for print with args (ignore OFS and ORS)
                     'csv|tsv [separator=<char>]'
-  -N mode           newline output translation: smart (default), raw, crlf
+  -N mode           newline output translation: raw (default), smart, crlf
   -version          show GoAWK version and exit
 
 GoAWK debugging arguments:
@@ -101,8 +103,10 @@ func main() {
 	coverMode := cover.ModeUnspecified
 	coverProfile := ""
 	coverAppend := false
-	useChars := false
-	newlineOutput := interp.SmartNewlineMode
+	// Skua: count Unicode chars unless the locale says otherwise (as gawk in a
+	// UTF-8 locale), and write newlines as is on Windows too (as Git Bash's gawk).
+	useChars := localeIsUTF8()
+	newlineOutput := interp.RawNewlineMode
 
 	var i int
 argsLoop:
@@ -167,6 +171,8 @@ argsLoop:
 			cpuProfile = os.Args[i]
 		case "-csv", "--csv":
 			inputMode = "csv"
+		case "-b":
+			useChars = false
 		case "-c":
 			useChars = true
 		case "-d":
@@ -251,7 +257,7 @@ argsLoop:
 		// Read source: the concatenation of all source files specified
 		progFiles = expandWildcardsOnWindows(progFiles)
 		for _, progFile := range progFiles {
-			if progFile == "-" {
+			if progFile == "-" || progFile == "/dev/stdin" {
 				err := fileReader.AddFile("<stdin>", os.Stdin)
 				if err != nil {
 					errorExit(err)
@@ -346,7 +352,7 @@ argsLoop:
 	}
 
 	config := &interp.Config{
-		Argv0:         filepath.Base(os.Args[0]),
+		Argv0:         strings.TrimSuffix(strings.TrimSuffix(filepath.Base(os.Args[0]), ".exe"), ".EXE"),
 		Args:          expandWildcardsOnWindows(args),
 		Chars:         useChars,
 		NoArgVars:     noArgVars,
@@ -456,6 +462,11 @@ func showSourceLine(src []byte, pos lexer.Position) {
 }
 
 func errorExit(err error) {
+	// Skua: a write to a closed pipe ends awk silently with 141 (128 + SIGPIPE),
+	// as gawk killed by SIGPIPE in Git Bash.
+	if isBrokenPipe(err) {
+		os.Exit(141)
+	}
 	var pathErr *fs.PathError
 	if errors.As(err, &pathErr) && errors.Is(err, fs.ErrNotExist) {
 		errorExitf("file %q not found", pathErr.Path)
@@ -463,9 +474,23 @@ func errorExit(err error) {
 	errorExitf("%s", err)
 }
 
+// Skua: fatal errors exit with status 2, as gawk's (syntax errors stay 1).
 func errorExitf(format string, args ...any) {
 	fmt.Fprintf(os.Stderr, format+"\n", args...)
-	os.Exit(1)
+	os.Exit(2)
+}
+
+// localeIsUTF8 reports whether text is counted in Unicode chars: true unless
+// the first set of LC_ALL, LC_CTYPE, LANG names a locale without UTF-8 (such
+// as C or POSIX). Unset means UTF-8: Windows has no POSIX locale variables.
+func localeIsUTF8() bool {
+	for _, name := range []string{"LC_ALL", "LC_CTYPE", "LANG"} {
+		if v := os.Getenv(name); v != "" {
+			v = strings.ToLower(v)
+			return strings.Contains(v, "utf-8") || strings.Contains(v, "utf8")
+		}
+	}
+	return true
 }
 
 func expandWildcardsOnWindows(args []string) []string {

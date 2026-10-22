@@ -102,12 +102,16 @@ func _() {
 	_ = x[GetlineLocal-91]
 	_ = x[GetlineSpecial-92]
 	_ = x[GetlineArray-93]
-	_ = x[EndOpcode-94]
+	_ = x[CallMatchArray-94]
+	_ = x[CallAsort-95]
+	_ = x[CallAsorti-96]
+	_ = x[CallStrftime-97]
+	_ = x[EndOpcode-98]
 }
 
-const _Opcode_name = "NopNumStrDupeDropSwapRoteFieldFieldIntFieldByNameFieldByNameStrGlobalLocalSpecialArrayGlobalArrayLocalInGlobalInLocalAssignFieldAssignFieldSubAssignGlobalAssignLocalAssignSpecialAssignArrayGlobalAssignArrayLocalDeleteDeleteAllIncrFieldIncrGlobalIncrLocalIncrSpecialIncrArrayGlobalIncrArrayLocalAugAssignFieldAugAssignGlobalAugAssignLocalAugAssignSpecialAugAssignArrayGlobalAugAssignArrayLocalRegexIndexMultiConcatMultiAddSubtractMultiplyDividePowerModuloEqualsNotEqualsLessGreaterLessOrEqualGreaterOrEqualConcatMatchNotMatchNotUnaryMinusUnaryPlusBooleanJumpJumpFalseJumpTrueJumpEqualsJumpNotEqualsJumpLessJumpGreaterJumpLessOrEqualJumpGreaterOrEqualNextNextfileExitExitStatusForInBreakForInCallBuiltinCallLengthArrayCallSplitCallSplitSepCallSprintfCallUserCallNativeReturnReturnNullNullsPrintPrintfGetlineGetlineFieldGetlineGlobalGetlineLocalGetlineSpecialGetlineArrayEndOpcode"
+const _Opcode_name = "NopNumStrDupeDropSwapRoteFieldFieldIntFieldByNameFieldByNameStrGlobalLocalSpecialArrayGlobalArrayLocalInGlobalInLocalAssignFieldAssignFieldSubAssignGlobalAssignLocalAssignSpecialAssignArrayGlobalAssignArrayLocalDeleteDeleteAllIncrFieldIncrGlobalIncrLocalIncrSpecialIncrArrayGlobalIncrArrayLocalAugAssignFieldAugAssignGlobalAugAssignLocalAugAssignSpecialAugAssignArrayGlobalAugAssignArrayLocalRegexIndexMultiConcatMultiAddSubtractMultiplyDividePowerModuloEqualsNotEqualsLessGreaterLessOrEqualGreaterOrEqualConcatMatchNotMatchNotUnaryMinusUnaryPlusBooleanJumpJumpFalseJumpTrueJumpEqualsJumpNotEqualsJumpLessJumpGreaterJumpLessOrEqualJumpGreaterOrEqualNextNextfileExitExitStatusForInBreakForInCallBuiltinCallLengthArrayCallSplitCallSplitSepCallSprintfCallUserCallNativeReturnReturnNullNullsPrintPrintfGetlineGetlineFieldGetlineGlobalGetlineLocalGetlineSpecialGetlineArrayCallMatchArrayCallAsortCallAsortiCallStrftimeEndOpcode"
 
-var _Opcode_index = [...]uint16{0, 3, 6, 9, 13, 17, 21, 25, 30, 38, 49, 63, 69, 74, 81, 92, 102, 110, 117, 128, 142, 154, 165, 178, 195, 211, 217, 226, 235, 245, 254, 265, 280, 294, 308, 323, 337, 353, 373, 392, 397, 407, 418, 421, 429, 437, 443, 448, 454, 460, 469, 473, 480, 491, 505, 511, 516, 524, 527, 537, 546, 553, 557, 566, 574, 584, 597, 605, 616, 631, 649, 653, 661, 665, 675, 680, 690, 701, 716, 725, 737, 748, 756, 766, 772, 782, 787, 792, 798, 805, 817, 830, 842, 856, 868, 877}
+var _Opcode_index = [...]uint16{0, 3, 6, 9, 13, 17, 21, 25, 30, 38, 49, 63, 69, 74, 81, 92, 102, 110, 117, 128, 142, 154, 165, 178, 195, 211, 217, 226, 235, 245, 254, 265, 280, 294, 308, 323, 337, 353, 373, 392, 397, 407, 418, 421, 429, 437, 443, 448, 454, 460, 469, 473, 480, 491, 505, 511, 516, 524, 527, 537, 546, 553, 557, 566, 574, 584, 597, 605, 616, 631, 649, 653, 661, 665, 675, 680, 690, 701, 716, 725, 737, 748, 756, 766, 772, 782, 787, 792, 798, 805, 817, 830, 842, 856, 868, 882, 891, 901, 913, 922}
 
 func (i Opcode) String() string {
 	idx := int(i) - 0
@@ -167,11 +171,13 @@ func _() {
 	_ = x[BuiltinSystem-21]
 	_ = x[BuiltinTolower-22]
 	_ = x[BuiltinToupper-23]
+	_ = x[BuiltinGensub-24]
+	_ = x[BuiltinSystime-25]
 }
 
-const _BuiltinOp_name = "BuiltinAtan2BuiltinCloseBuiltinCosBuiltinExpBuiltinFflushBuiltinFflushAllBuiltinGsubBuiltinIndexBuiltinIntBuiltinLengthBuiltinLengthArgBuiltinLogBuiltinMatchBuiltinRandBuiltinSinBuiltinSqrtBuiltinSrandBuiltinSrandSeedBuiltinSubBuiltinSubstrBuiltinSubstrLengthBuiltinSystemBuiltinTolowerBuiltinToupper"
+const _BuiltinOp_name = "BuiltinAtan2BuiltinCloseBuiltinCosBuiltinExpBuiltinFflushBuiltinFflushAllBuiltinGsubBuiltinIndexBuiltinIntBuiltinLengthBuiltinLengthArgBuiltinLogBuiltinMatchBuiltinRandBuiltinSinBuiltinSqrtBuiltinSrandBuiltinSrandSeedBuiltinSubBuiltinSubstrBuiltinSubstrLengthBuiltinSystemBuiltinTolowerBuiltinToupperBuiltinGensubBuiltinSystime"
 
-var _BuiltinOp_index = [...]uint16{0, 12, 24, 34, 44, 57, 73, 84, 96, 106, 119, 135, 145, 157, 168, 178, 189, 201, 217, 227, 240, 259, 272, 286, 300}
+var _BuiltinOp_index = [...]uint16{0, 12, 24, 34, 44, 57, 73, 84, 96, 106, 119, 135, 145, 157, 168, 178, 189, 201, 217, 227, 240, 259, 272, 286, 300, 313, 327}
 
 func (i BuiltinOp) String() string {
 	idx := int(i) - 0

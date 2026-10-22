@@ -627,9 +627,11 @@ func TestGoAWKSpecificOptions(t *testing.T) {
 
 		// Chars mode (vs bytes)
 		{[]string{"-c", `BEGIN { printf "%c", 4660 }`}, "", "\u1234", ""},
-		{[]string{`BEGIN { printf "%c", 4660 }`}, "", "4", ""},
+		{[]string{"-b", `BEGIN { printf "%c", 4660 }`}, "", "4", ""},
+		{[]string{`BEGIN { printf "%c", 4660 }`}, "", "\u1234", ""}, // Skua: chars by default
 		{[]string{"-c", `{ print length }`}, "絵\n", "1\n", ""},
-		{[]string{`{ print length }`}, "絵\n", "3\n", ""},
+		{[]string{"-b", `{ print length }`}, "絵\n", "3\n", ""},
+		{[]string{`{ print length }`}, "絵\n", "1\n", ""}, // Skua: chars by default
 
 		// Debug options
 		{[]string{"-dt", `
@@ -705,6 +707,7 @@ func TestNewlineOutputMode(t *testing.T) {
 	if runtime.GOOS == "windows" {
 		nl = "\r\n"
 	}
+	// Skua: the default is raw, as gawk's (smart still gives CRLF on Windows).
 
 	tests := []struct {
 		args   []string
@@ -712,7 +715,7 @@ func TestNewlineOutputMode(t *testing.T) {
 		output string
 		error  string
 	}{
-		{[]string{`BEGIN { printf 'foo\nbar\n' }`}, "", "foo" + nl + "bar" + nl, ""},
+		{[]string{`BEGIN { printf 'foo\nbar\n' }`}, "", "foo\nbar\n", ""},
 		{[]string{"-N", "smart", `BEGIN { printf 'foo\nbar\n' }`}, "", "foo" + nl + "bar" + nl, ""},
 		{[]string{"-Nsmart", `BEGIN { printf 'foo\nbar\n' }`}, "", "foo" + nl + "bar" + nl, ""},
 		{[]string{"-N", "raw", `BEGIN { printf 'foo\nbar\n' }`}, "", "foo\nbar\n", ""},

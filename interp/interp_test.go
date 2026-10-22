@@ -309,7 +309,7 @@ BEGIN {
 	{`BEGIN { print -(11102200000000000000000000000000000000 1040000) }  # !gawk - gawk supports big numbers`,
 		"", "-inf\n", "", ""},
 	{`BEGIN { print atan2(0, 8020020000000e20G-0)}`, "", "0\n", "", ""},
-	{`BEGIN { print 1e1000, -1e1000 }  # !gawk`, "", "inf -inf\n", "", ""},
+	{`BEGIN { print 1e1000, -1e1000 }`, "", "+inf -inf\n", "", ""},
 	{`BEGIN { printf "\x0.\x00.\x0A\x10\xff\xFF\x41" }  # !awk !posix`, "", "\x00.\x00.\n\x10\xff\xffA", "", ""},
 	{`BEGIN { printf "\x1.\x01.\x0A\x10\xff\xFF\x41" }  # !posix`, "", "\x01.\x01.\n\x10\xff\xffA", "", ""},
 	{`BEGIN { printf "\0\78\7\77\777\0 \141 " }  # !awk`, "", "\x00\a8\a?\xff\x00 a ", "", ""},
@@ -648,11 +648,30 @@ function f() {
 	{`BEGIN { print exp(0), exp(0.5), exp(1), exp(-1) }`, "", "1 1.64872 2.71828 0.367879\n", "", ""},
 	{`BEGIN { print log(0), log(0.5), log(1) }`, "", "-inf -0.693147 0\n", "", ""},
 	{`BEGIN { print log(-1) }  # !gawk - gawk prints warning for this as well`,
-		"", "nan\n", "", ""},
+		"", "+nan\n", "", ""},
 	{`BEGIN { print sqrt(0), sqrt(2), sqrt(4) }`, "", "0 1.41421 2\n", "", ""},
 	{`BEGIN { print int(3.5), int("1.9"), int(4), int(-3.6), int("x"), int("") }`, "", "3 1 4 -3 0 0\n", "", ""},
 	{`BEGIN { print match("food", "foo"), RSTART, RLENGTH }`, "", "1 1 3\n", "", ""},
 	{`BEGIN { print match("x food y", "fo"), RSTART, RLENGTH }`, "", "3 3 2\n", "", ""},
+
+	// Skua: gawk extensions (match with an array, gensub, asort, asorti,
+	// strftime, systime)
+	{`BEGIN { if (match("v1.2.3", /([0-9]+)\.([0-9]+)/, m)) print m[0], m[1], m[2], m[1,"start"], m[2,"length"], RSTART, RLENGTH }  # !posix`, "", "1.2 1 2 2 1 2 3\n", "", ""},
+	{`BEGIN { m["x"]; print match("abc", /z/, m), RSTART, RLENGTH, length(m) }  # !posix`, "", "0 0 -1 0\n", "", ""},
+	{`{ print gensub(/-/, "+", "g"), gensub(/([a-z])-([a-z])/, "<\\2\\1>", 1), gensub(/-/, "[&]", 2), gensub(/b/, "\\\\&", "G", $0) }  # !posix !windows-gawk`, "a-b-c\n", "a+b+c <ba>-c a-b[-]c a-\\b-c\n", "", ""},
+	{`BEGIN { s = "aaa"; print gensub(/a/, "b", 3, s), s }  # !posix`, "", "aab aaa\n", "", ""},
+	{`BEGIN { a["c"]=3; a["a"]=1; a["b"]="x"; a["d"]=10; n = asorti(a, k); for (i=1; i<=n; i++) printf "%s ", k[i]; n = asort(a); for (i=1; i<=n; i++) printf "%s ", a[i]; print n }  # !posix`, "", "a b c d 1 3 10 x 4\n", "", ""},
+	{`BEGIN { print strftime("%Y-%m-%d %H:%M:%S %j %a %b %e|%u %V %U %W %%", 86400*400, 1), strftime("%F %T", 0, 1) }  # !posix`, "", "1971-02-05 00:00:00 036 Fri Feb  5|5 05 05 05 % 1970-01-01 00:00:00\n", "", ""},
+	{`BEGIN { print (systime() > 1700000000) }  # !posix`, "", "1\n", "", ""},
+	{`BEGIN { a["z"]=1; a["b"]=10; a["m"]=2; a[10]=0; a[9]=5; n = split("@ind_str_asc @ind_str_desc @ind_num_asc @val_num_asc @val_num_desc @val_type_asc @val_str_asc", modes, " "); for (i=1; i<=n; i++) { PROCINFO["sorted_in"] = modes[i]; s = ""; for (k in a) s = s k ","; print modes[i], s } }  # !posix`, "", `
+@ind_str_asc 10,9,b,m,z,
+@ind_str_desc z,m,b,9,10,
+@ind_num_asc b,m,z,9,10,
+@val_num_asc 10,z,m,9,b,
+@val_num_desc b,9,m,z,10,
+@val_type_asc 10,z,m,9,b,
+@val_str_asc 10,z,b,m,9,
+`[1:], "", ""},
 	{`BEGIN { print match("x food y", "fox"), RSTART, RLENGTH }`, "", "0 0 -1\n", "", ""},
 	{`BEGIN { print match("x food y", /[fod]+/), RSTART, RLENGTH }`, "", "3 3 4\n", "", ""},
 	{`BEGIN { print match("a\nb\nc", /^a.*c$/), RSTART, RLENGTH }`, "", "1 1 5\n", "", ""},
@@ -1066,8 +1085,9 @@ BEGIN { x[1]=3; f5(x); print x[1] }
 	{`{ sub(/x/, "y", 42) }  # !gawk`, "", "", "parse error at 1:17: 3rd arg to sub/gsub must be lvalue", ""},
 	{"{ a[] }", "", "", "parse error at 1:5: expected expression instead of ]", "syntax"},
 
-	// Hex floating point and other number conversions
-	{`{ print $1+0 }  # +posix`, `
+	// Hex floating point and other number conversions (Skua: as gawk without
+	// --posix, hex strings are not numbers and inf/nan must be signed)
+	{`{ print $1+0 }  # !posix`, `
 0x0
 0X10
 0x1234567890
@@ -1083,22 +1103,22 @@ BEGIN { x[1]=3; f5(x); print x[1] }
 0x.
 `[1:], `
 0
-16
-78187493520
-11259375
-11259375
--10
-10
-15.9375
-16320
-0.015564
-0.9375
-15
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
 0
 `[1:], "", ""},
-	{`BEGIN { print int("0x22"), int("-0xa"), int("0xffz"), int("022"), int("-022") }  # +posix`, "",
-		"34 -10 255 22 -22\n", "", ""},
-	{`{ print $1, $2+0 }  # !gawk`, `
+	{`BEGIN { print int("0x22"), int("-0xa"), int("0xffz"), int("022"), int("-022") }  # !posix`, "",
+		"0 0 0 22 -22\n", "", ""},
+	{`{ print $1, $2+0 }  # !posix`, `
 1 nan
 2 NAN
 3 nanny
@@ -1115,23 +1135,23 @@ BEGIN { x[1]=3; f5(x); print x[1] }
 14 in
 15 +in
 `[1:], `
-1 nan
-2 nan
-3 nan
-4 nan
-5 nan
+1 0
+2 0
+3 0
+4 +nan
+5 -nan
 6 0
 7 0
-8 inf
-9 inf
-10 inf
-11 inf
-12 inf
+8 0
+9 0
+10 0
+11 0
+12 +inf
 13 -inf
 14 0
 15 0
 `[1:], "", ""},
-	{`{ printf "%s < %s == %d\n", $1, $2, $1<$2 }  # +posix`, `
+	{`{ printf "%s < %s == %d\n", $1, $2, $1<$2 }  # !posix`, `
 10 2
 0x10 0x2
 +nan +nan
@@ -1139,13 +1159,13 @@ BEGIN { x[1]=3; f5(x); print x[1] }
 -0x10.0p0 +0x2.0p0
 `[1:], `
 10 < 2 == 0
-0x10 < 0x2 == 0
+0x10 < 0x2 == 1
 +nan < +nan == 0
--0x10 < +0x2 == 1
--0x10.0p0 < +0x2.0p0 == 1
+-0x10 < +0x2 == 0
+-0x10.0p0 < +0x2.0p0 == 0
 `[1:], "", ""},
-	{`{ print !$1 }  # +posix`, "0x0\n0x0.0p0\n0x1\n0x0.01\n", "1\n1\n0\n0\n", "", ""},
-	{`{ print 2 == $1 }  # +posix`, "0x1p1\n0x1P1\n", "1\n1\n", "", ""},
+	{`{ print !$1 }  # !posix`, "0x0\n0x0.0p0\n0x1\n0x0.01\n", "0\n0\n0\n0\n", "", ""},
+	{`{ print 2 == $1 }  # !posix`, "0x1p1\n0x1P1\n", "0\n0\n", "", ""},
 	{`{ print $1<$2 }`, "1_0 2", "1\n", "", ""},
 }
 

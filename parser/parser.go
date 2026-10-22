@@ -863,8 +863,65 @@ func (p *parser) primary() ast.Expr {
 		str := p.expr()
 		p.commaNewlines()
 		regex := p.regexStr(p.expr)
+		args := []ast.Expr{str, regex}
+		if p.tok == lexer.COMMA {
+			// Skua: gawk's match(s, re, arr) fills arr with the groups
+			p.commaNewlines()
+			name, namePos := p.expectName()
+			args = append(args, &ast.VarExpr{Name: name, Pos: namePos})
+		}
 		p.expect(lexer.RPAREN)
-		return &ast.CallExpr{Func: lexer.F_MATCH, Args: []ast.Expr{str, regex}}
+		return &ast.CallExpr{Func: lexer.F_MATCH, Args: args}
+	case lexer.F_ASORT, lexer.F_ASORTI:
+		// Skua: gawk's asort(src [, dest]) and asorti(src [, dest])
+		op := p.tok
+		p.next()
+		p.expect(lexer.LPAREN)
+		name, namePos := p.expectName()
+		args := []ast.Expr{&ast.VarExpr{Name: name, Pos: namePos}}
+		if p.tok == lexer.COMMA {
+			p.commaNewlines()
+			name, namePos := p.expectName()
+			args = append(args, &ast.VarExpr{Name: name, Pos: namePos})
+		}
+		p.expect(lexer.RPAREN)
+		return &ast.CallExpr{Func: op, Args: args}
+	case lexer.F_GENSUB:
+		// Skua: gawk's gensub(re, repl, how [, target])
+		p.next()
+		p.expect(lexer.LPAREN)
+		regex := p.regexStr(p.expr)
+		p.commaNewlines()
+		repl := p.expr()
+		p.commaNewlines()
+		how := p.expr()
+		args := []ast.Expr{regex, repl, how}
+		if p.tok == lexer.COMMA {
+			p.commaNewlines()
+			args = append(args, p.expr())
+		}
+		p.expect(lexer.RPAREN)
+		return &ast.CallExpr{Func: lexer.F_GENSUB, Args: args}
+	case lexer.F_SYSTIME:
+		// Skua: gawk's systime()
+		p.next()
+		p.expect(lexer.LPAREN)
+		p.expect(lexer.RPAREN)
+		return &ast.CallExpr{Func: lexer.F_SYSTIME}
+	case lexer.F_STRFTIME:
+		// Skua: gawk's strftime([format [, timestamp [, utc]]])
+		p.next()
+		p.expect(lexer.LPAREN)
+		var args []ast.Expr
+		if p.tok != lexer.RPAREN {
+			args = append(args, p.expr())
+			for p.tok == lexer.COMMA && len(args) < 3 {
+				p.commaNewlines()
+				args = append(args, p.expr())
+			}
+		}
+		p.expect(lexer.RPAREN)
+		return &ast.CallExpr{Func: lexer.F_STRFTIME, Args: args}
 	case lexer.F_RAND:
 		p.next()
 		p.expect(lexer.LPAREN)
