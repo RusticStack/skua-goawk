@@ -38,12 +38,10 @@ func (osFS) Create(name string) (io.WriteCloser, error) {
 	return os.OpenFile(devNull(name), os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0o644)
 }
 
-// Skua: "/dev/null" is the null device on Windows too ("NUL").
+// Skua: "/dev/null" is the null device on Windows too ("NUL"), and POSIX paths such as
+// "/tmp/x" or "/c/x" map as in Git Bash (skua_msys.go).
 func devNull(name string) string {
-	if name == "/dev/null" {
-		return os.DevNull
-	}
-	return name
+	return msysPath(name)
 }
 
 func (osFS) Append(name string) (io.WriteCloser, error) {

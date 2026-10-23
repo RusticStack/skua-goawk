@@ -467,9 +467,18 @@ func errorExit(err error) {
 	if isBrokenPipe(err) {
 		os.Exit(141)
 	}
+	// Skua: gawk's message for an input file it cannot open, with GNU's error text (Go's
+	// text on Windows is Windows' message in the user's language).
 	var pathErr *fs.PathError
-	if errors.As(err, &pathErr) && errors.Is(err, fs.ErrNotExist) {
-		errorExitf("file %q not found", pathErr.Path)
+	if errors.As(err, &pathErr) && pathErr.Op == "open" {
+		reason := pathErr.Err.Error()
+		switch {
+		case errors.Is(err, fs.ErrNotExist):
+			reason = "No such file or directory"
+		case errors.Is(err, fs.ErrPermission):
+			reason = "Permission denied"
+		}
+		errorExitf("awk: fatal: cannot open file `%s' for reading: %s", pathErr.Path, reason)
 	}
 	errorExitf("%s", err)
 }

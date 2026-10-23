@@ -397,8 +397,8 @@ func TestCommandLine(t *testing.T) {
 		{[]string{"-E", "testdata/awc.awk", "-w", "testdata/awc.awk"}, "", "95 \n", ""},
 		{[]string{"-Etestdata/awc.awk", "-w", "testdata/awc.awk"}, "", "95 \n", ""},
 		{[]string{"-E", "testdata/awc.awk", "-w", "--", "testdata/awc.awk"}, "", "95 \n", ""},
-		{[]string{"-E", "testdata/awc.awk", "--", "-l"}, "", "", `file "-l" not found`},
-		{[]string{"-E", "testdata/awc.awk", "foo=bar"}, "", "", `file "foo=bar" not found`},
+		{[]string{"-E", "testdata/awc.awk", "--", "-l"}, "", "", "awk: fatal: cannot open file `-l' for reading: No such file or directory"},
+		{[]string{"-E", "testdata/awc.awk", "foo=bar"}, "", "", "awk: fatal: cannot open file `foo=bar' for reading: No such file or directory"},
 
 		// Error handling
 		{[]string{}, "", "", "usage: goawk [-F fs] [-v var=value] [-f progfile | 'prog'] [file ...]"},
@@ -406,11 +406,11 @@ func TestCommandLine(t *testing.T) {
 		{[]string{"-f"}, "", "", "flag needs an argument: -f"},
 		{[]string{"-v"}, "", "", "flag needs an argument: -v"},
 		{[]string{"-z"}, "", "", "flag provided but not defined: -z"},
-		{[]string{"{ print }", "notexist"}, "", "", `file "notexist" not found`},
+		{[]string{"{ print }", "notexist"}, "", "", "awk: fatal: cannot open file `notexist' for reading: No such file or directory"},
 		{[]string{"BEGIN { print 1/0 }"}, "", "", "division by zero"},
 		{[]string{"-v", "foo", "BEGIN {}"}, "", "", "-v flag must be in format name=value"},
-		{[]string{"--", "{ print $1 }", "-file"}, "", "", `file "-file" not found`},
-		{[]string{"{ print $1 }", "-file"}, "", "", `file "-file" not found`},
+		{[]string{"--", "{ print $1 }", "-file"}, "", "", "awk: fatal: cannot open file `-file' for reading: No such file or directory"},
+		{[]string{"{ print $1 }", "-file"}, "", "", "awk: fatal: cannot open file `-file' for reading: No such file or directory"},
 
 		// Output synchronization
 		{[]string{`BEGIN { print "1"; print "2"|"cat" }`}, "", "1\n2\n", ""},
@@ -538,7 +538,7 @@ func TestWildcards(t *testing.T) {
 		if err == nil {
 			t.Fatal("expected error using wildcards on non-Windows system")
 		}
-		expected := "file \"testdata/wildcards/*.txt\" not found\n"
+		expected := "awk: fatal: cannot open file `testdata/wildcards/*.txt' for reading: No such file or directory\n"
 		if stderr != expected {
 			t.Fatalf("expected %q, got %q", expected, stderr)
 		}
