@@ -51,7 +51,8 @@ import (
 const (
 	version    = "v1.32.0"
 	copyright  = "GoAWK " + version + " - Copyright (c) 2022 Ben Hoyt"
-	shortUsage = "usage: goawk [-F fs] [-v var=value] [-f progfile | 'prog'] [file ...]"
+	// Skua: the command is `awk` in Skua Bash, as in Git Bash (gawk says `Usage: awk ...`; capital U as gawk).
+	shortUsage = "Usage: awk [-F fs] [-v var=value] [-f progfile | 'prog'] [file ...]"
 	longUsage  = `Standard AWK arguments:
   --csv             enable CSV input mode; equivalent to "-i csv"
   -F separator      field separator (default " ")
@@ -124,13 +125,13 @@ argsLoop:
 		switch arg {
 		case "-covermode":
 			if i+1 >= len(os.Args) {
-				errorExitf("flag needs an argument: -covermode")
+				usageErrorf("awk: option requires an argument -- covermode")
 			}
 			i++
 			coverMode = coverModeFromString(os.Args[i])
 		case "-coverprofile":
 			if i+1 >= len(os.Args) {
-				errorExitf("flag needs an argument: -coverprofile")
+				usageErrorf("awk: option requires an argument -- coverprofile")
 			}
 			i++
 			coverProfile = os.Args[i]
@@ -138,7 +139,7 @@ argsLoop:
 			coverAppend = true
 		case "-E":
 			if i+1 >= len(os.Args) {
-				errorExitf("flag needs an argument: -E")
+				usageErrorf("awk: option requires an argument -- E")
 			}
 			i++
 			progFiles = append(progFiles, os.Args[i])
@@ -147,25 +148,25 @@ argsLoop:
 			break argsLoop
 		case "-F":
 			if i+1 >= len(os.Args) {
-				errorExitf("flag needs an argument: -F")
+				usageErrorf("awk: option requires an argument -- F")
 			}
 			i++
 			fieldSep = os.Args[i]
 		case "-f":
 			if i+1 >= len(os.Args) {
-				errorExitf("flag needs an argument: -f")
+				usageErrorf("awk: option requires an argument -- f")
 			}
 			i++
 			progFiles = append(progFiles, os.Args[i])
 		case "-v":
 			if i+1 >= len(os.Args) {
-				errorExitf("flag needs an argument: -v")
+				usageErrorf("awk: option requires an argument -- v")
 			}
 			i++
 			vars = append(vars, os.Args[i])
 		case "-cpuprofile":
 			if i+1 >= len(os.Args) {
-				errorExitf("flag needs an argument: -cpuprofile")
+				usageErrorf("awk: option requires an argument -- cpuprofile")
 			}
 			i++
 			cpuProfile = os.Args[i]
@@ -188,25 +189,25 @@ argsLoop:
 			os.Exit(0)
 		case "-i":
 			if i+1 >= len(os.Args) {
-				errorExitf("flag needs an argument: -i")
+				usageErrorf("awk: option requires an argument -- i")
 			}
 			i++
 			inputMode = os.Args[i]
 		case "-memprofile":
 			if i+1 >= len(os.Args) {
-				errorExitf("flag needs an argument: -memprofile")
+				usageErrorf("awk: option requires an argument -- memprofile")
 			}
 			i++
 			memProfile = os.Args[i]
 		case "-o":
 			if i+1 >= len(os.Args) {
-				errorExitf("flag needs an argument: -o")
+				usageErrorf("awk: option requires an argument -- o")
 			}
 			i++
 			outputMode = os.Args[i]
 		case "-N":
 			if i+1 >= len(os.Args) {
-				errorExitf("flag needs an argument: -N")
+				usageErrorf("awk: option requires an argument -- N")
 			}
 			i++
 			newlineOutput = newlineModeFromString(os.Args[i])
@@ -241,7 +242,7 @@ argsLoop:
 			case strings.HasPrefix(arg, "-coverprofile="):
 				coverProfile = arg[len("-coverprofile="):]
 			default:
-				errorExitf("flag provided but not defined: %s", arg)
+				usageErrorf("awk: unknown option %s", arg)
 			}
 		}
 	}
@@ -277,7 +278,7 @@ argsLoop:
 		}
 	} else {
 		if len(args) < 1 {
-			errorExitf(shortUsage)
+			usageErrorf("")
 		}
 		err := fileReader.AddFile("<cmdline>", strings.NewReader(args[0]))
 		if err != nil {
@@ -481,6 +482,16 @@ func errorExit(err error) {
 		errorExitf("awk: fatal: cannot open file `%s' for reading: %s", pathErr.Path, reason)
 	}
 	errorExitf("%s", err)
+}
+
+// Skua: a usage error (no program, an unknown option, an option without its value) prints
+// the message, if any, and the usage line, and exits 1, as gawk's do.
+func usageErrorf(format string, args ...any) {
+	if format != "" {
+		fmt.Fprintf(os.Stderr, format+"\n", args...)
+	}
+	fmt.Fprintln(os.Stderr, shortUsage)
+	os.Exit(1)
 }
 
 // Skua: fatal errors exit with status 2, as gawk's (syntax errors stay 1).

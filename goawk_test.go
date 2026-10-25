@@ -401,11 +401,12 @@ func TestCommandLine(t *testing.T) {
 		{[]string{"-E", "testdata/awc.awk", "foo=bar"}, "", "", "awk: fatal: cannot open file `foo=bar' for reading: No such file or directory"},
 
 		// Error handling
-		{[]string{}, "", "", "usage: goawk [-F fs] [-v var=value] [-f progfile | 'prog'] [file ...]"},
-		{[]string{"-F"}, "", "", "flag needs an argument: -F"},
-		{[]string{"-f"}, "", "", "flag needs an argument: -f"},
-		{[]string{"-v"}, "", "", "flag needs an argument: -v"},
-		{[]string{"-z"}, "", "", "flag provided but not defined: -z"},
+		// Skua: usage errors as gawk's (exit 1), with the usage line naming `awk`.
+		{[]string{}, "", "", "Usage: awk [-F fs] [-v var=value] [-f progfile | 'prog'] [file ...]"},
+		{[]string{"-F"}, "", "", "awk: option requires an argument -- F\nUsage: awk [-F fs] [-v var=value] [-f progfile | 'prog'] [file ...]"},
+		{[]string{"-f"}, "", "", "awk: option requires an argument -- f\nUsage: awk [-F fs] [-v var=value] [-f progfile | 'prog'] [file ...]"},
+		{[]string{"-v"}, "", "", "awk: option requires an argument -- v\nUsage: awk [-F fs] [-v var=value] [-f progfile | 'prog'] [file ...]"},
+		{[]string{"-z"}, "", "", "awk: unknown option -z\nUsage: awk [-F fs] [-v var=value] [-f progfile | 'prog'] [file ...]"},
 		{[]string{"{ print }", "notexist"}, "", "", "awk: fatal: cannot open file `notexist' for reading: No such file or directory"},
 		{[]string{"BEGIN { print 1/0 }"}, "", "", "division by zero"},
 		{[]string{"-v", "foo", "BEGIN {}"}, "", "", "-v flag must be in format name=value"},
@@ -926,8 +927,8 @@ func TestCoverInvalidArgs(t *testing.T) {
 		args          []string
 		expectedError string
 	}{
-		{[]string{"-coverprofile"}, "flag needs an argument: -coverprofile"},
-		{[]string{"-covermode"}, "flag needs an argument: -covermode"},
+		{[]string{"-coverprofile"}, "awk: option requires an argument -- coverprofile\nUsage: awk [-F fs] [-v var=value] [-f progfile | 'prog'] [file ...]"},
+		{[]string{"-covermode"}, "awk: option requires an argument -- covermode\nUsage: awk [-F fs] [-v var=value] [-f progfile | 'prog'] [file ...]"},
 		{[]string{"-covermode", "wrong"}, "-covermode can only be one of: set, count"},
 		{[]string{"-covermode=wrong"}, "-covermode can only be one of: set, count"},
 	}

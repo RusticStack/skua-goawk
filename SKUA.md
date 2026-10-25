@@ -19,6 +19,7 @@ Goal: behave like Git Bash's gawk for the awk that coding agents and scripts wri
 | Output newlines are written as is (`-N raw` default); upstream wrote CRLF on Windows | `goawk.go` |
 | A write to a closed pipe exits 141 with no message (gawk dies of SIGPIPE) | `goawk.go`, `brokenpipe_*.go` |
 | Fatal errors exit 2 (gawk); syntax errors stay 1 | `goawk.go` |
+| Usage errors (no program, an unknown option, an option without its value) print `awk: ...` and the usage line naming `awk`, and exit 1, as gawk's (M3-SH11) | `goawk.go` |
 | Unicode chars by default unless `LC_ALL`/`LC_CTYPE`/`LANG` names a non-UTF-8 locale; `-b` for bytes | `goawk.go` |
 | `/dev/stdin` for `-f`, input operands and `getline <`; `/dev/null` maps to `NUL` | `goawk.go`, `interp/io.go` |
 | Strings like `0x1A` are not numbers, `inf`/`nan` only when signed (`+inf`, `-nan`), and print signed: gawk without `--posix` | `interp/value.go` |
