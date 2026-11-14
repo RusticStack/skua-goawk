@@ -6,6 +6,7 @@ import (
 	"bufio"
 	"errors"
 	"fmt"
+	"io"
 	"reflect"
 	"sort"
 	"strconv"
@@ -67,45 +68,54 @@ func (p *interp) callNative(index int, args []value) (value, error) {
 
 // Convert from an AWK value to a native Go value
 func (p *interp) toNative(v value, typ reflect.Type) reflect.Value {
+	var native reflect.Value
+
 	switch typ.Kind() {
 	case reflect.Bool:
-		return reflect.ValueOf(v.boolean())
+		native = reflect.ValueOf(v.boolean())
 	case reflect.Int:
-		return reflect.ValueOf(int(v.num()))
+		native = reflect.ValueOf(int(v.num()))
 	case reflect.Int8:
-		return reflect.ValueOf(int8(v.num()))
+		native = reflect.ValueOf(int8(v.num()))
 	case reflect.Int16:
-		return reflect.ValueOf(int16(v.num()))
+		native = reflect.ValueOf(int16(v.num()))
 	case reflect.Int32:
-		return reflect.ValueOf(int32(v.num()))
+		native = reflect.ValueOf(int32(v.num()))
 	case reflect.Int64:
-		return reflect.ValueOf(int64(v.num()))
+		native = reflect.ValueOf(int64(v.num()))
 	case reflect.Uint:
-		return reflect.ValueOf(uint(int64(v.num())))
+		native = reflect.ValueOf(uint(int64(v.num())))
 	case reflect.Uint8:
-		return reflect.ValueOf(uint8(int64(v.num())))
+		native = reflect.ValueOf(uint8(int64(v.num())))
 	case reflect.Uint16:
-		return reflect.ValueOf(uint16(int64(v.num())))
+		native = reflect.ValueOf(uint16(int64(v.num())))
 	case reflect.Uint32:
-		return reflect.ValueOf(uint32(int64(v.num())))
+		native = reflect.ValueOf(uint32(int64(v.num())))
 	case reflect.Uint64:
-		return reflect.ValueOf(uint64(int64(v.num())))
+		native = reflect.ValueOf(uint64(int64(v.num())))
 	case reflect.Float32:
-		return reflect.ValueOf(float32(v.num()))
+		native = reflect.ValueOf(float32(v.num()))
 	case reflect.Float64:
-		return reflect.ValueOf(v.num())
+		native = reflect.ValueOf(v.num())
 	case reflect.String:
-		return reflect.ValueOf(p.toString(v))
+		native = reflect.ValueOf(p.toString(v))
 	case reflect.Slice:
 		if typ.Elem().Kind() != reflect.Uint8 {
 			// Shouldn't happen: prevented by checkNativeFunc
 			panic(fmt.Sprintf("unexpected argument slice: %s", typ.Elem().Kind()))
 		}
-		return reflect.ValueOf([]byte(p.toString(v)))
+		native = reflect.New(typ).Elem()
+		native.SetBytes([]byte(p.toString(v)))
 	default:
 		// Shouldn't happen: prevented by checkNativeFunc
 		panic(fmt.Sprintf("unexpected argument type: %s", typ.Kind()))
 	}
+
+	if native.Type() != typ {
+		// Convert concrete type to named Go type if needed
+		native = native.Convert(typ)
+	}
+	return native
 }
 
 // Convert from a native Go value to an AWK value
@@ -122,11 +132,11 @@ func fromNative(v reflect.Value) value {
 	case reflect.String:
 		return str(v.String())
 	case reflect.Slice:
-		if b, ok := v.Interface().([]byte); ok {
-			return str(string(b))
+		if v.Type().Elem().Kind() != reflect.Uint8 {
+			// Shouldn't happen: prevented by checkNativeFunc
+			panic(fmt.Sprintf("unexpected return slice: %s", v.Type().Elem().Kind()))
 		}
-		// Shouldn't happen: prevented by checkNativeFunc
-		panic(fmt.Sprintf("unexpected return slice: %s", v.Type().Elem().Kind()))
+		return str(string(v.Bytes()))
 	default:
 		// Shouldn't happen: prevented by checkNativeFunc
 		panic(fmt.Sprintf("unexpected return type: %s", v.Kind()))
@@ -467,6 +477,48 @@ func (p *interp) formatNum(f numFormat, v value) string {
 	return s
 }
 
+func isASCII(s string) bool {
+	for i := 0; i < len(s); i++ {
+		if s[i] >= utf8.RuneSelf {
+			return false
+		}
+	}
+	return true
+}
+
+// byteString formats itself like a plain string, except that %s width and
+// precision count bytes rather than Unicode characters (which is what Go's
+// fmt does). It's used for non-ASCII strings when not in chars mode, so that
+// "%.1s" truncates to the first byte, like awk in the C locale. (For ASCII
+// there's nothing to do: bytes and characters are the same thing.)
+type byteString string
+
+func (s byteString) Format(f fmt.State, verb rune) {
+	str := string(s)
+	if prec, ok := f.Precision(); ok && prec < len(str) {
+		str = str[:prec]
+	}
+	width, _ := f.Width() // zero if no width was given
+	if width <= len(str) {
+		io.WriteString(f, str)
+		return
+	}
+	// Note that fmt reports the '0' flag even when '-' is also present, but
+	// like Go's fmt (and C), zero padding only applies on the left.
+	pad := " "
+	if f.Flag('0') && !f.Flag('-') {
+		pad = "0"
+	}
+	padding := strings.Repeat(pad, width-len(str))
+	if f.Flag('-') {
+		io.WriteString(f, str)
+		io.WriteString(f, padding)
+	} else {
+		io.WriteString(f, padding)
+		io.WriteString(f, str)
+	}
+}
+
 // Guts of sprintf() function (also used by "printf" statement)
 func (p *interp) sprintf(format string, args []value) (string, error) {
 	format, types, err := p.parseFmtTypes(format)
@@ -482,7 +534,12 @@ func (p *interp) sprintf(format string, args []value) (string, error) {
 		var v any
 		switch t {
 		case 's':
-			v = p.toString(a)
+			str := p.toString(a)
+			if p.chars || isASCII(str) {
+				v = str
+			} else {
+				v = byteString(str)
+			}
 		case 'd':
 			v = int64(a.num())
 		case 'f':

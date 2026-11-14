@@ -95,6 +95,11 @@ NR==3, NR==5 { print NR }
 	{`BEGIN { printf "%% %d %x %c %f %s", 42, 42, 42, 42, 42 }`, "", "% 42 2a * 42.000000 42", "", ""},
 	{`BEGIN { printf "%3d", 42 }`, "", " 42", "", ""},
 	{`BEGIN { printf "%3s", "x" }`, "", "  x", "", ""},
+	// Without -c, %s width and precision count bytes, not characters (gawk does the same under LC_ALL=C).
+	{`BEGIN { printf "%3s:%.1s", "╋", "╋" }  # !awk !gawk`, "", "╋:\xe2", "", ""},
+	{`BEGIN { printf "[%-4s]", "╋" }  # !awk !gawk`, "", "[╋ ]", "", ""},
+	{`BEGIN { printf "[%*.*s]", 4, 1, "╋" }  # !awk !gawk`, "", "[   \xe2]", "", ""}, // dynamic width and precision too
+	{`BEGIN { printf "[%06s][%-06s]", "╋", "╋" }  # !awk !gawk`, "", "[000╋][╋   ]", "", ""},
 	{`BEGIN { printf "%.1g", 42 }  # !windows-gawk`, "", "4e+01", "", ""}, // for some reason gawk gives "4e+001" on Windows
 	{`BEGIN { printf "%g", 12345.678 }`, "", "12345.7", "", ""},           // bare %g defaults to 6 significant digits (like C/awk)
 	{`BEGIN { printf "%G", 12345.678 }`, "", "12345.7", "", ""},
@@ -1167,6 +1172,10 @@ BEGIN { x[1]=3; f5(x); print x[1] }
 	{`{ print !$1 }  # !posix`, "0x0\n0x0.0p0\n0x1\n0x0.01\n", "0\n0\n0\n0\n", "", ""},
 	{`{ print 2 == $1 }  # !posix`, "0x1p1\n0x1P1\n", "0\n0\n", "", ""},
 	{`{ print $1<$2 }`, "1_0 2", "1\n", "", ""},
+	// Only ASCII whitespace is allowed around numeric strings (RS=";" to allow \n)
+	{`BEGIN { RS=";" } { print ($0 == 1), $0+0 }`, " \t\n\v\f\r1 \t\n\v\f\r", "1 1\n", "", ""},
+	{`BEGIN { RS=";" } { print ($0 == 1), $0+0 }`, "\u00a01", "0 0\n", "", ""},
+	{`BEGIN { RS=";" } { print ($0 == 1), $0+0 }`, "1\u00a0", "0 1\n", "", ""},
 }
 
 // Flags parses the "skip flags" in it.src's first comment and returns them as
@@ -1631,6 +1640,44 @@ BEGIN { x=4; y=5; print foo(x), bar(y) }
 	}
 }
 
+func TestNativeNamedTypes(t *testing.T) {
+	type count int
+	type label string
+	type enabled bool
+	type ratio float64
+	type octet uint8
+	type data []byte
+
+	tests := []struct {
+		name string
+		src  string
+		out  string
+		fn   any
+	}{
+		{"integer", `BEGIN { print f(42) }`, "42\n", func(n count) count { return n }},
+		{"string", `BEGIN { print f("hello") }`, "hello\n", func(s label) label { return s }},
+		{"boolean", `BEGIN { print f(1) }`, "1\n", func(b enabled) enabled { return b }},
+		{"float", `BEGIN { print f(1.5) }`, "1.5\n", func(n ratio) ratio { return n }},
+		{"byte", `BEGIN { print f(255) }`, "255\n", func(n octet) octet { return n }},
+		{"byte slice", `BEGIN { print f("hello") }`, "hello\n", func(b data) data { return b }},
+		{"named byte elements", `BEGIN { print f("hello") }`, "hello\n", func(b []octet) []octet { return b }},
+		{"returned byte slice", `BEGIN { print f() }`, "hello\n", func() data { return data("hello") }},
+		{"default argument", `BEGIN { print f() }`, "0\n", func(n count) count { return n }},
+		{"variadic", `BEGIN { print f(1, 2, 3) }`, "6\n", func(ns ...count) count {
+			var total count
+			for _, n := range ns {
+				total += n
+			}
+			return total
+		}},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			testGoAWK(t, test.src, "", test.out, "", map[string]any{"f": test.fn}, nil)
+		})
+	}
+}
+
 func TestSafeMode(t *testing.T) {
 	tests := []struct {
 		src  string
@@ -1688,6 +1735,9 @@ func TestCharsMode(t *testing.T) {
 		in  string
 		out string
 	}{
+		// printf %s
+		{`BEGIN { printf "%3s:%.1s", "╋", "╋" }`, "", "  ╋:╋"},
+
 		// printf %c
 		{`BEGIN { printf "%c", 128 }`, "", "\u0080"},
 		{`BEGIN { printf "%c", 255 }`, "", "ÿ"},

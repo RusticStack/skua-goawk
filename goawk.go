@@ -60,8 +60,8 @@ const (
   -v var=value      variable assignment (multiple allowed)
 
 Additional GoAWK features:
-  -b                use bytes for index, length, match, substr, and %c
-  -c                use Unicode chars for index, length, match, substr, and %c
+  -b                use bytes for index, length, match, substr, %c and %s
+  -c                use Unicode chars for index, length, match, substr, %c and %s
                     (default unless LC_ALL, LC_CTYPE or LANG names a non-UTF-8 locale)
   -E progfile       load program, treat as last option, disable var=value args
   -H                parse header row and enable @"field" in CSV input mode
