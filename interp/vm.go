@@ -1021,19 +1021,28 @@ func (p *interp) callBuiltin(builtinOp compiler.BuiltinOp) error {
 		sValue, substr := p.peekPop()
 		s := p.toString(sValue)
 		sub := p.toString(substr)
-		var index int
-		if p.ignoreCase() {
-			index = strings.Index(strings.ToLower(s), strings.ToLower(sub))
-		} else {
-			index = strings.Index(s, sub)
-		}
 		var awkIndex int
-		if index < 0 {
-			awkIndex = 0
-		} else if p.chars {
-			awkIndex = utf8.RuneCountInString(s[:index]) + 1
-		} else {
-			awkIndex = index + 1
+		if p.ignoreCase() {
+			ls := strings.ToLower(s)
+			if index := strings.Index(ls, strings.ToLower(sub)); index >= 0 {
+				r := utf8.RuneCountInString(ls[:index])
+				if p.chars {
+					awkIndex = r + 1
+				} else {
+					off := 0
+					for i := 0; i < r && off < len(s); i++ {
+						_, sz := utf8.DecodeRuneInString(s[off:])
+						off += sz
+					}
+					awkIndex = off + 1
+				}
+			}
+		} else if index := strings.Index(s, sub); index >= 0 {
+			if p.chars {
+				awkIndex = utf8.RuneCountInString(s[:index]) + 1
+			} else {
+				awkIndex = index + 1
+			}
 		}
 		p.replaceTop(num(float64(awkIndex)))
 
