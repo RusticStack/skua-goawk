@@ -736,6 +736,64 @@ func (p *interp) splitOnFieldSepRegex(fields []string, line string) []string {
 	return fields
 }
 
+func appendFields(dst []string, s string) []string {
+	n := len(s)
+	i := 0
+	for i < n {
+		c := s[i]
+		if c >= utf8.RuneSelf {
+			return append(dst[:0], strings.Fields(s)...)
+		}
+		if asciiSpace[c] == 0 {
+			break
+		}
+		i++
+	}
+	fieldStart := i
+	for i < n {
+		c := s[i]
+		if c >= utf8.RuneSelf {
+			return append(dst[:0], strings.Fields(s)...)
+		}
+		if asciiSpace[c] == 0 {
+			i++
+			continue
+		}
+		dst = append(dst, s[fieldStart:i])
+		i++
+		for i < n {
+			c = s[i]
+			if c >= utf8.RuneSelf {
+				return append(dst[:0], strings.Fields(s)...)
+			}
+			if asciiSpace[c] == 0 {
+				break
+			}
+			i++
+		}
+		fieldStart = i
+	}
+	if fieldStart < n {
+		dst = append(dst, s[fieldStart:n])
+	}
+	return dst
+}
+
+func appendSplit(dst []string, s, sep string) []string {
+	if len(sep) == 1 {
+		b := sep[0]
+		for {
+			i := strings.IndexByte(s, b)
+			if i < 0 {
+				return append(dst, s)
+			}
+			dst = append(dst, s[:i])
+			s = s[i+1:]
+		}
+	}
+	return append(dst, strings.Split(s, sep)...)
+}
+
 // Ensure that the current line is parsed into fields, splitting it
 // into fields if it hasn't been already
 func (p *interp) ensureFields() {
@@ -763,14 +821,23 @@ func (p *interp) ensureFields() {
 		}
 	case p.savedFieldSep == " ":
 		// FS space (default) means split fields on any whitespace
-		p.fields = strings.Fields(p.line)
+		p.fields = appendFields(p.fields[:0], p.line)
 	case p.line == "":
-		p.fields = nil
-	case utf8.RuneCountInString(p.savedFieldSep) <= 1:
+		p.fields = p.fields[:0]
+	case utf8.RuneCountInString(p.savedFieldSep) <= 1 && (!p.ignoreCase() || p.savedFieldSep == ""):
 		// 1-char FS is handled as plain split (not regex)
-		p.fields = strings.Split(p.line, p.savedFieldSep)
+		p.fields = appendSplit(p.fields[:0], p.line, p.savedFieldSep)
 	default:
 		// Split on FS as a regex
+		if p.savedFieldSepRegex == nil || p.ignoreCase() {
+			sep := p.savedFieldSep
+			if utf8.RuneCountInString(sep) <= 1 {
+				sep = regexp.QuoteMeta(sep)
+			}
+			if re, err := p.compileRegex(sep); err == nil {
+				p.savedFieldSepRegex = re
+			}
+		}
 		p.fields = p.splitOnFieldSepRegex(p.fields[:0], p.line)
 	}
 

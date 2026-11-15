@@ -3463,7 +3463,7 @@ func BenchmarkCSVInputGoAWK(b *testing.B) {
 	input := strings.Join(inputLines, "\n")
 	expected := fmt.Sprintf("%d", s)
 	src := `BEGIN { INPUTMODE="csv" } { s += $1 } END { print s }`
-	benchmarkProgram(b, nil, input, expected, src)
+	benchmarkProgram(b, nil, input, expected, "%s", src)
 }
 
 func BenchmarkCSVInputReader(b *testing.B) {

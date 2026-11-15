@@ -1,7 +1,7 @@
 // Skua: gawk extensions that coding agents use in one-liners: match() with an
-// array, gensub(), asort(), asorti(), systime(), strftime() and
+// array, gensub(), asort(), asorti(), systime(), strftime(), IGNORECASE and
 // PROCINFO["sorted_in"]. Semantics follow the gawk manual ("String Functions",
-// "Time Functions", "Controlling Array Traversal").
+// "Time Functions", "Case-sensitivity in Matching", "Controlling Array Traversal").
 
 package interp
 
@@ -16,6 +16,32 @@ import (
 	"github.com/benhoyt/goawk/internal/compiler"
 	"github.com/benhoyt/goawk/internal/resolver"
 )
+
+// ignoreCase reports whether gawk's IGNORECASE variable is enabled (non-zero
+// number or non-empty string). Fast path when the program never mentions
+// IGNORECASE and -v IGNORECASE was not passed.
+func (p *interp) ignoreCase() bool {
+	var v value
+	if p.ignoreCaseIndex >= 0 {
+		v = p.globals[p.ignoreCaseIndex]
+	} else if p.hasIgnoreCaseVal {
+		v = p.ignoreCaseVal
+	} else {
+		return false
+	}
+	switch v.typ {
+	case typeNull:
+		return false
+	case typeNum:
+		return v.n != 0
+	default:
+		n, isStr := v.isTrueStr()
+		if isStr {
+			return v.s != ""
+		}
+		return n != 0
+	}
+}
 
 // matchArray is match(s, re, arr): like match(), and arr[0] is the matched
 // text, arr[n] the n-th parenthesized group, with arr[n, "start"] and

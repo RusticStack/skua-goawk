@@ -76,7 +76,7 @@ func TestTopoSortCycle(t *testing.T) {
 	assertBefore(t, sorted, "b", "a")
 	c := strIndex(sorted, "a")
 	if c < 0 {
-		t.Fatalf("expected %q to be in result", c)
+		t.Fatalf("expected %q to be in result", "a")
 	}
 }
 

@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"io"
 	"reflect"
+	"regexp"
 	"sort"
 	"strconv"
 	"strings"
@@ -277,9 +278,12 @@ func (p *interp) split(s string, scope resolver.Scope, index int, sep string, se
 		parts = strings.Fields(s)
 	case s == "":
 		// Leave parts 0 length on empty string
-	case !sepIsRegex && utf8.RuneCountInString(sep) <= 1:
+	case !sepIsRegex && utf8.RuneCountInString(sep) <= 1 && (!p.ignoreCase() || sep == ""):
 		parts = strings.Split(s, sep)
 	default:
+		if !sepIsRegex && utf8.RuneCountInString(sep) == 1 {
+			sep = regexp.QuoteMeta(sep)
+		}
 		re, err := p.compileRegex(sep)
 		if err != nil {
 			return 0, err

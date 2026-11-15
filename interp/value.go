@@ -111,18 +111,44 @@ func (v value) boolean() bool {
 // "-nan" (so input fields such as "nan", "info" or "Infinity" stay strings).
 func parseFloat(s string) (float64, error) {
 	s = trimASCIISpace(s)
+	if len(s) == 0 {
+		return 0, strconv.ErrSyntax
+	}
 	body := s
+	neg := false
 	if len(s) > 1 && (s[0] == '+' || s[0] == '-') {
+		neg = s[0] == '-'
 		body = s[1:]
 		if len(s) == 4 && hasNaNPrefix(body) {
 			// ParseFloat doesn't handle "nan" with sign prefix, so handle it here.
-			return signedNaN(s[0] == '-'), nil
+			return signedNaN(neg), nil
+		}
+	}
+	if len(body) >= 1 && len(body) <= 15 && isDigit(body[0]) {
+		u := uint64(body[0] - '0')
+		allDigits := true
+		for i := 1; i < len(body); i++ {
+			c := body[i]
+			if !isDigit(c) {
+				allDigits = false
+				break
+			}
+			u = u*10 + uint64(c-'0')
+		}
+		if allDigits {
+			f := float64(u)
+			if neg {
+				return -f, nil
+			}
+			return f, nil
 		}
 	}
 	if len(body) > 0 && (body[0] == 'i' || body[0] == 'I' || body[0] == 'n' || body[0] == 'N') {
 		if body == s || len(s) != 4 || !hasInfPrefix(body) {
 			return 0, strconv.ErrSyntax
 		}
+	} else if len(body) == 0 || (!isDigit(body[0]) && body[0] != '.') {
+		return 0, strconv.ErrSyntax
 	}
 	if len(body) > 1 && hasHexPrefix(body) {
 		return 0, strconv.ErrSyntax
@@ -236,11 +262,19 @@ func parseFloatPrefix(s string) float64 {
 	// Parse mantissa: initial digit(s), optional '.', then more digits.
 	// Skua: no hex, as gawk ("0x1A" converts to 0).
 	gotDigit := false
+	intStart := i
+	var intVal uint64
 	for i < len(s) && isDigit(s[i]) {
 		gotDigit = true
+		if i-intStart < 15 {
+			intVal = intVal*10 + uint64(s[i]-'0')
+		}
 		i++
 	}
+	intDigits := i - intStart
+	hasDotOrExp := false
 	if i < len(s) && s[i] == '.' {
+		hasDotOrExp = true
 		i++
 	}
 	for i < len(s) && isDigit(s[i]) {
@@ -255,6 +289,7 @@ func parseFloatPrefix(s string) float64 {
 	// rejects them)
 	end := i
 	if i < len(s) && (s[i] == 'e' || s[i] == 'E') {
+		hasDotOrExp = true
 		i++
 		if i < len(s) && (s[i] == '+' || s[i] == '-') {
 			i++
@@ -263,6 +298,13 @@ func parseFloatPrefix(s string) float64 {
 			i++
 			end = i
 		}
+	}
+	if !hasDotOrExp && intDigits >= 1 && intDigits <= 15 {
+		f := float64(intVal)
+		if signed && s[start] == '-' {
+			return -f
+		}
+		return f
 	}
 
 	floatStr := s[start:end]

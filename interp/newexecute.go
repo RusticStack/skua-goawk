@@ -144,6 +144,8 @@ func (p *interp) resetVars() {
 	p.outputFieldSep = " "
 	p.outputRecordSep = "\n"
 	p.subscriptSep = "\x1c"
+	p.ignoreCaseVal = null()
+	p.hasIgnoreCaseVal = false
 }
 
 // ResetVars resets this interpreter's variables, setting scalar variables to

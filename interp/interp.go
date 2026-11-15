@@ -160,6 +160,9 @@ type interp struct {
 	csvJoinFieldsBuf  bytes.Buffer
 	chars             bool
 	newlineOutputCRLF bool
+	ignoreCaseIndex   int
+	ignoreCaseVal     value
+	hasIgnoreCaseVal  bool
 }
 
 // Various const configuration. Could make these part of Config if
@@ -437,6 +440,11 @@ func newInterp(program *parser.Program) *interp {
 			p.scalarIndexes[name] = info.Index
 		}
 	})
+	if idx, ok := p.scalarIndexes["IGNORECASE"]; ok {
+		p.ignoreCaseIndex = idx
+	} else {
+		p.ignoreCaseIndex = -1
+	}
 	p.globals = make([]value, len(p.scalarIndexes))
 	p.stack = make([]value, initialStackSize)
 	p.arrays = make([]map[string]value, len(p.arrayIndexes), len(p.arrayIndexes)+initialStackSize)
@@ -837,6 +845,11 @@ func (p *interp) setVarByName(name, value string) error {
 		p.globals[index] = numStr(value)
 		return nil
 	}
+	if name == "IGNORECASE" {
+		p.ignoreCaseVal = numStr(value)
+		p.hasIgnoreCaseVal = true
+		return nil
+	}
 	// Ignore variables that aren't defined in program
 	return nil
 }
@@ -1103,17 +1116,21 @@ func (p *interp) numToString(n float64, f numFormat) string {
 
 // Compile regex string (or fetch from regex cache)
 func (p *interp) compileRegex(regex string) (*regexp.Regexp, error) {
-	if re, ok := p.regexCache[regex]; ok {
+	key := regex
+	if p.ignoreCase() {
+		key = "(?i:" + regex + ")"
+	}
+	if re, ok := p.regexCache[key]; ok {
 		return re, nil
 	}
-	re, err := regexp.Compile(compiler.AddRegexFlags(regex))
+	re, err := regexp.Compile(compiler.AddRegexFlags(key))
 	if err != nil {
 		return nil, newError("invalid regex %q: %s", regex, err)
 	}
 	re.Longest() // other awks use leftmost-longest matching
 	// Dumb, non-LRU cache: just cache the first N regexes
 	if len(p.regexCache) < maxCachedRegexes {
-		p.regexCache[regex] = re
+		p.regexCache[key] = re
 	}
 	return re, nil
 }

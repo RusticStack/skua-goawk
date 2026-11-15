@@ -23,7 +23,7 @@ Goal: behave like Git Bash's gawk for the awk that coding agents and scripts wri
 | Unicode chars by default unless `LC_ALL`/`LC_CTYPE`/`LANG` names a non-UTF-8 locale; `-b` for bytes | `goawk.go` |
 | `/dev/stdin` for `-f`, input operands and `getline <`; `/dev/null` maps to `NUL` | `goawk.go`, `interp/io.go` |
 | Strings like `0x1A` are not numbers, `inf`/`nan` only when signed (`+inf`, `-nan`), and print signed: gawk without `--posix` | `interp/value.go` |
-| gawk functions: `match(s, re, arr)`, `gensub`, `asort`, `asorti`, `strftime`, `systime` | `lexer`, `parser`, `internal/resolver`, `internal/compiler`, `interp/skua_gawk.go` |
+| gawk functions and variables: `match(s, re, arr)`, `gensub`, `asort`, `asorti`, `strftime`, `systime`, `PROCINFO["sorted_in"]`, `IGNORECASE` | `lexer`, `parser`, `internal/resolver`, `internal/compiler`, `interp/skua_gawk.go` |
 
 Tests: `go test ./interp -args -awk=` and `go test . ./internal/... ./lexer ./parser` (with
 Git for Windows' `usr\bin` on PATH for gawk). CI: `.github/workflows/skua.yml`.

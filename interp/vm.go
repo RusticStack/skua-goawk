@@ -336,6 +336,11 @@ func (p *interp) execute(code []compiler.Opcode) error {
 			index := code[ip]
 			ip++
 			re := p.regexes[index]
+			if p.ignoreCase() {
+				if icRe, err := p.compileRegex(re.String()); err == nil {
+					re = icRe
+				}
+			}
 			p.push(boolean(re.MatchString(p.line)))
 
 		case compiler.IndexMulti:
@@ -1015,7 +1020,13 @@ func (p *interp) callBuiltin(builtinOp compiler.BuiltinOp) error {
 	case compiler.BuiltinIndex:
 		sValue, substr := p.peekPop()
 		s := p.toString(sValue)
-		index := strings.Index(s, p.toString(substr))
+		sub := p.toString(substr)
+		var index int
+		if p.ignoreCase() {
+			index = strings.Index(strings.ToLower(s), strings.ToLower(sub))
+		} else {
+			index = strings.Index(s, sub)
+		}
 		var awkIndex int
 		if index < 0 {
 			awkIndex = 0

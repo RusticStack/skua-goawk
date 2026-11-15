@@ -18,3 +18,16 @@ func TestMsysPathInProgram(t *testing.T) {
 		while ((getline line < "/tmp/` + name + `") > 0) print "got " line }`
 	testGoAWK(t, src, "", "got hello\n", "", nil, nil)
 }
+
+func TestSkuaIgnoreCase(t *testing.T) {
+	src := `BEGIN { IGNORECASE = 1 }
+/hello/ {
+	s = $0
+	sub(/WORLD/, "earth", s)
+	n = split("aXbxc", parts, "x")
+	print "matched", ($0 ~ /HELLO/), index($0, "world"), s, n, parts[2]
+	IGNORECASE = 0
+	print ($0 ~ /hello/)
+}`
+	testGoAWK(t, src, "Hello World\n", "matched 1 7 Hello earth 3 b\n0\n", "", nil, nil)
+}

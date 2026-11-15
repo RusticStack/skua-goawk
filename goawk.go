@@ -352,10 +352,16 @@ argsLoop:
 		stdout = os.Stdout
 	}
 
+	var environ []string
+	if !bytes.Contains(fileReader.Source(), []byte("ENVIRON")) {
+		environ = []string{}
+	}
+
 	config := &interp.Config{
 		Argv0:         strings.TrimSuffix(strings.TrimSuffix(filepath.Base(os.Args[0]), ".exe"), ".EXE"),
 		Args:          expandWildcardsOnWindows(args),
 		Chars:         useChars,
+		Environ:       environ,
 		NoArgVars:     noArgVars,
 		Output:        stdout,
 		NewlineOutput: newlineOutput,
